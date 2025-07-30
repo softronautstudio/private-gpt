@@ -21,7 +21,8 @@ services:
       PGPT_PROFILES: docker
       PGPT_MODE: ollama
       PGPT_EMBED_MODE: ollama
-      PGPT_OLLAMA_API_BASE: http://ollama:11434
+      PGPT_OLLAMA_API_BASE: http://ollama-cpu:11434
+      PGPT_OLLAMA_EMBEDDING_API_BASE: http://ollama-cpu:11434
       HF_TOKEN: ${HF_TOKEN:-}
     profiles:
       - ""
@@ -29,7 +30,7 @@ services:
       - ollama-cuda
       - ollama-api
     depends_on:
-      ollama:
+      ollama-cpu:
         condition: service_healthy
 
   # Private-GPT service for the local mode
@@ -42,7 +43,7 @@ services:
       dockerfile: Dockerfile.llamacpp-cpu
     volumes:
       - ./local_data/:/home/worker/app/local_data
-      - ./models/:/home/worker/app/models
+      - ~/.ollama/:/home/worker/app/models
     entrypoint: sh -c ".venv/bin/python scripts/setup && .venv/bin/python -m private_gpt"
     ports:
       - "8001:8001"
@@ -62,7 +63,7 @@ services:
   ollama:
     image: traefik:v2.10
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget -q --spider http://ollama:11434 || exit 1"]
+      test: ["CMD", "sh", "-c", "wget -q --spider http://localhost:11434 || exit 1"]
       interval: 10s
       retries: 3
       start_period: 5s
@@ -93,7 +94,13 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ./models:/root/.ollama
+      - ~/.ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
     profiles:
       - ""
       - ollama-cpu
@@ -104,7 +111,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ./models:/root/.ollama
+      - ~/.ollama:/root/.ollama
     deploy:
       resources:
         reservations:
